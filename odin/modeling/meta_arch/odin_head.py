@@ -79,19 +79,20 @@ class ODINHead(nn.Module):
         self.in_features = [k for k, v in input_shape]
 
         self.ignore_value = ignore_value
-        self.common_stride = 4
+        self.common_stride = 4 
         self.loss_weight = loss_weight
-        self.hidden_dim = hidden_dim
-        self.cfg = cfg
+        self.hidden_dim = hidden_dim # 
+        self.cfg = cfg # 
 
         self.pixel_decoder = pixel_decoder
         
-        self.transformer_in_feature = transformer_in_feature
+        self.transformer_in_feature = transformer_in_feature #
 
-        self.num_classes = num_classes
-        self.decoder_3d = decoder_3d
-        self.cross_view = cross_view
-
+        self.num_classes = num_classes #
+        self.decoder_3d = decoder_3d #
+        self.cross_view = cross_view #
+        
+        #AA :  in odin we use a transformer based decoding head
         self.predictor = build_transformer_decoder(
                 cfg,
                 transformer_predictor_in_channels,

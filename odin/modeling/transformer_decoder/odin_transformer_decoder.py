@@ -39,7 +39,12 @@ def build_transformer_decoder(cfg, in_channels, mask_classification=True):
 
 @TRANSFORMER_DECODER_REGISTRY.register()
 class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
-
+    '''
+    AA: what all is this model responsible for? 
+        1. Query Refinement
+        2. Masked Deformable Attention
+        3. Mask decoder : class_pred , instance_pred
+    '''
     _version = 2
 
     def _load_from_state_dict(
@@ -107,6 +112,7 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
         self.mask_classification = mask_classification
 
         # self.num_frames = num_frames
+        # AA: new in ODIN
         self.decoder_3d = decoder_3d
         self.hidden_dim = hidden_dim
         self.cfg = cfg
@@ -116,14 +122,16 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
         # define Transformer decoder here
         self.num_heads = nheads
         self.num_layers = dec_layers
-        self.transformer_self_attention_layers = nn.ModuleList()
+        self.transformer_self_attention_layers = nn.ModuleList() #remember dont initialize it as list() , creates problem shifting to gpu 
         self.transformer_cross_attention_layers = nn.ModuleList()
+        #AA: open-ended vocab ke liye cross-attn layer
         self.transformer_text_cross_attention_layers = nn.ModuleList()
+        #AA: cross attention between point features and object queries
         self.transformer_cross_attention_layers_f_to_q = nn.ModuleList()
         self.transformer_ffn_layers = nn.ModuleList()
 
         for _ in range(self.num_layers):
-            self.transformer_self_attention_layers.append(
+             self.transformer_self_attention_layers.append(
                 SelfAttentionLayer(
                     d_model=hidden_dim,
                     nhead=nheads,
@@ -171,6 +179,7 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
         self.num_feature_levels = 3
         self.level_embed = nn.Embedding(self.num_feature_levels, hidden_dim)
         self.input_proj = nn.ModuleList()
+        #AA: bouncer
         for _ in range(self.num_feature_levels):
             if in_channels != hidden_dim or enforce_input_project:
                 self.input_proj.append(Conv2d(in_channels, hidden_dim, kernel_size=1))
@@ -190,7 +199,7 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
             
             self.lang_pos_embed = nn.Embedding(self.max_seq_len, hidden_dim)
 
-            self.class_embed = nn.Linear(hidden_dim, hidden_dim)
+            self.class_embed = nn.Linear(hidden_dim, hidden_dim) # AA: segmentation mask wali MLP
 
 
     @classmethod
@@ -239,8 +248,8 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
     def voxel_map_to_source(self, voxel_map, poin2voxel):
         """
         Input:
-            voxel_map (B, N1, C)
-            point2voxel (B, N)
+            voxel_map (B, N1, C) - AA: would contain indices as voxel number -- and C dimensional feature 
+            point2voxel (B, N) - AA: would contain voxel index i.e. point 2 voxel number mapping
         Output:
             src_new (B, N, C)
         """
@@ -250,10 +259,10 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
 
 
     def open_vocab_class_pred(self, decoder_output, text_feats, positive_map_od=None, num_classes=None):
-        class_embed = self.class_embed(decoder_output)
+        class_embed = self.class_embed(decoder_output) #AA: linear on point features
 
-        query_feats = F.normalize(class_embed, dim=-1)
-        text_feats = F.normalize(text_feats, dim=-1)
+        query_feats = F.normalize(class_embed, dim=-1) # AA: obtained from object query refinement process
+        text_feats = F.normalize(text_feats, dim=-1) # AA: obtained from language encoder : RoBerta and getting 1 token per object (avg for complex word "shower-curtain")
 
         output_class = torch.einsum("bqc,sbc->bqs", query_feats / 0.07, text_feats) 
             
@@ -271,6 +280,7 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
         multiview_data=None, 
         segments=None, scannet_p2v=None, decoder_3d=False, 
         captions=None, positive_map_od=None, num_classes=None):
+        #AA: x is list of multi-scale features
 
         voxelize = decoder_3d and self.cfg.INPUT.VOXELIZE
 
@@ -282,7 +292,7 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
 
         
         if not decoder_3d:
-            bv, c_m, h_m, w_m = mask_features.shape
+            bv, c_m, h_m, w_m = mask_features.shape # AA: v kya hota hai?
             mask_features = mask_features.view(bs, v, c_m, h_m, w_m)
             self.forward_prediction_heads = self.forward_prediction_heads2D
             if voxelize:
@@ -333,7 +343,7 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
             src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
             _, c, hw = src[-1].shape
             # NTxCxHW => NxTxCxHW => (TxHW)xNxC
-            src[-1] = src[-1].view(bs, v, c, hw).permute(1, 3, 0, 2).flatten(0, 1)
+            src[-1] = src[-1].view(bs, v, c, hw).permute(1, 3, 0, 2).flatten(0, 1) # AA: T kya hota hai??
 
             if decoder_3d:
                 pos.append(pe_layer(x_xyz[i].reshape(bs, -1, 3)).permute(1, 0, 2)) # THW X B X C
@@ -351,10 +361,10 @@ class ODINMultiScaleMaskedTransformerDecoder(nn.Module):
 
         # QxNxC
         # query pos
-        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
+        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # AA: learnable 
 
         # query feats
-        output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1)
+        output = self.query_feat.weight.unsqueeze(1).repeat(1, bs, 1) 
 
         query_pad_mask = None
         text_feats = None

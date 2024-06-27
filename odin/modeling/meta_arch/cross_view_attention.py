@@ -79,11 +79,12 @@ class CrossViewPAnet(nn.Module):
 
         for j, (feature, xyz) in enumerate(zip(feature_list, xyz_list)):
             # B*V, F, H, W -> B, V, F, H, W -> B, V*H*W, F
-            bv, f, h, w = feature.shape
+            bv, f, h, w = feature.shape  
             feature = feature.reshape(bs, v, f, h, w).permute(0, 1, 3, 4, 2).flatten(1, 3) # B, VHW, F
             xyz = xyz.reshape(bs, v, h, w, 3).flatten(1, 3) # B, VHW, 3
             if voxelize:
                 p2v = multiview_data['multi_scale_p2v'][j] # B, N
+                # ayush : whats the size, what is p2v? 
                 try:
                     feature = torch.cat(
                         [scatter_mean(feature[b], p2v[b], dim=0) for b in range(len(feature))]) # bn, F
