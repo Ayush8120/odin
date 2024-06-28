@@ -108,9 +108,9 @@ def unproject(intrinsics, poses, depths):
     B, V, H, W = depths.shape
     fx, fy, px, py = intrinsics[..., 0, 0][..., None], intrinsics[..., 1, 1][..., None], intrinsics[..., 0, 2][..., None], intrinsics[..., 1, 2][..., None]
 
-    y = torch.arange(0, H).to(depths.device)
-    x = torch.arange(0, W).to(depths.device)
-    y, x = torch.meshgrid(y, x)
+    y = torch.arange(0, H).to(depths.device) # AA: tensor of shape H
+    x = torch.arange(0, W).to(depths.device) # AA: tensor of shape W
+    y, x = torch.meshgrid(y, x) # AA: y - tensor of shape (H,W) , x - tensor of shape (H,W) 
 
     x = x[None, None].repeat(B, V, 1, 1).flatten(2)
     y = y[None, None].repeat(B, V, 1, 1).flatten(2)
