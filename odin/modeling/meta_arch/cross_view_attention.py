@@ -1,3 +1,5 @@
+# AA : 3D Rel Posn 
+# AA: understood till pointops2 usage, after that couldn't follow but understood what happening
 import torch
 from torch import nn
 from torch_scatter import scatter_mean
@@ -74,6 +76,7 @@ class CrossViewPAnet(nn.Module):
             xyz_list: list of tensor (B*V, H, W, 3)
             shape: (B, V)
         """
+        #AA: xyz_list is list of positions xyz corresponding to each point/pixel
         out_features = []
         bs, v = shape
 
@@ -84,20 +87,28 @@ class CrossViewPAnet(nn.Module):
             xyz = xyz.reshape(bs, v, h, w, 3).flatten(1, 3) # B, VHW, 3
             if voxelize:
                 p2v = multiview_data['multi_scale_p2v'][j] # B, N
-                # ayush : whats the size, what is p2v? 
+                # AA : p2v should be of size (B,N)
+                # AA : it contains point to voxel index mapping
                 try:
                     feature = torch.cat(
                         [scatter_mean(feature[b], p2v[b], dim=0) for b in range(len(feature))]) # bn, F
+                        # AA: Remember that the dim used in scatter_mean is to tell the axis across which the indexing is done eg: here \downarrow 
                 except:
                     st()
+                # AA: for each voxel we found interpolated features,now time to get each voxel interpolated coords 
                 xyz = torch.cat(
                     [scatter_mean(xyz[b], p2v[b], dim=0) for b in range(len(xyz))])
+
+                # AA: find max of each batch ([0] index gives the max value, axis 1 tells to do across \rightarrow dimension)
+                # AA: add 1 as indice start form 0
+                # AA : cumsum(0) tells to create a cummulative sum tensor in \downarrow direction
                 batch_offset = ((p2v).max(1)[0] + 1).cumsum(0).to(torch.int32)
+            
             else:
                 # queryandgroup expects N, F and N, 3 with additional batch offset
-                xyz = xyz.flatten(0, 1).contiguous()
-                feature = feature.flatten(0, 1).contiguous()
-                batch_offset = (torch.arange(bs, dtype=torch.int32, device=xyz.device) + 1) * v * h * w
+                xyz = xyz.flatten(0, 1).contiguous() # N,3
+                feature = feature.flatten(0, 1).contiguous() # VHW,F
+                batch_offset = (torch.arange(bs, dtype=torch.int32, device=xyz.device) + 1) * v * h * w #[0,1,2.. + 1]*vhw element wise
 
             knn_points_feats, idx = pointops.queryandgroup(
                 self.nsample, xyz, xyz, feature, None, batch_offset, batch_offset, use_xyz=True, return_indx=True

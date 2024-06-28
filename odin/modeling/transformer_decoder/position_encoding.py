@@ -119,7 +119,7 @@ class PositionEmbeddingSine3D(nn.Module):
 
 class PositionEmbeddingLearned(nn.Module):
     """Absolute pos embedding, learned."""
-
+    ## AA: Conv1D usage
     def __init__(self, dim=3, num_pos_feats=288):
         super().__init__()
         self.position_embedding_head = nn.Sequential(
@@ -153,7 +153,7 @@ class PositionEmbeddingLearned(nn.Module):
         
 class PositionEmbeddingLearnedMLP(nn.Module):
     """Absolute pos embedding, learned."""
-
+    ## AA: Linear usage
     def __init__(self, dim=3, num_pos_feats=288):
         super().__init__()
         self.position_embedding_head = nn.Sequential(
