@@ -117,7 +117,7 @@ class CrossAttentionLayer(nn.Module):
                     memory_key_padding_mask: Optional[Tensor] = None,
                     pos: Optional[Tensor] = None,
                     query_pos: Optional[Tensor] = None):
-        tgt2 = self.norm(tgt)
+        tgt2 = self.norm(tgt) #AA: only query vector gets normalized not the Key, Value
         tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt2, query_pos),
                                    key=self.with_pos_embed(memory, pos),
                                    value=memory, attn_mask=memory_mask,
@@ -301,8 +301,9 @@ class GenericMLP(nn.Module):
 
         if output_use_activation:
             layers.append(activation())
-
-        self.layers = nn.Sequential(*layers)
+        
+        #AA: remember this is very important if you are stacking up layers in a list() and not nn.ModuleList()
+        self.layers = nn.Sequential(*layers)  
 
         if weight_init_name is not None:
             self.do_weight_init(weight_init_name)
