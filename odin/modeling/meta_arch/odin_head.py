@@ -1,3 +1,4 @@
+# AA: skipped , as Mask2Former modified code 
 # Copyright (c) Facebook, Inc. and its affiliates.
 import logging
 from typing import Dict
